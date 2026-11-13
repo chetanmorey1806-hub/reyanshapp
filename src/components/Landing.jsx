@@ -4,15 +4,18 @@ import DemoCard from './DemoCard.jsx'
 import { ACCEPT } from '../utils/imageLoader.js'
 
 const FEATURES = [
-  { icon: 'wand', title: 'Just describe it', text: 'Write the edit in English, मराठी or हिंदी. Change light, colour, background, remove objects and more.' },
-  { icon: 'layers', title: 'Any camera, any file', text: 'JPG, PNG, iPhone HEIC, TIFF and camera RAW: CR2, CR3, NEF, ARW, DNG and others.' },
-  { icon: 'shield', title: 'Built for professionals', text: 'Before / after compare, unlimited undo, fine-tune sliders and full-resolution export.' },
+  { icon: 'wand', title: 'Just describe it', text: 'Type or speak the edit in English, मराठी or हिंदी. Change light, colour, background, remove objects and more.' },
+  { icon: 'sliders', title: 'Every pro tool', text: 'Exposure, highlights, shadows, curves-style tone, HSL looks, clarity, crop, straighten, text, stickers and frames.' },
+  { icon: 'film', title: 'Videos & reels', text: 'Turn photos into reels, trim and join clips, add songs, transitions, filters and animated text.' },
+  { icon: 'mic', title: 'Voice prompts', text: 'Tap the mic and say what you want. The edit happens as soon as you stop speaking.' },
+  { icon: 'layers', title: 'Any camera, any file', text: 'JPG, PNG, iPhone HEIC, TIFF, camera RAW (CR2, NEF, ARW, DNG…), MP4, MOV and WEBM.' },
+  { icon: 'shield', title: 'Full quality', text: 'Before / after compare, unlimited undo and full-resolution export up to 4K.' },
 ]
 
 const STEPS = [
-  ['01', 'Upload', 'Drop in a photo straight from your camera or phone.'],
-  ['02', 'Describe', 'Tell the AI what you want, in your own words.'],
-  ['03', 'Download', 'Compare, fine-tune and save in full quality.'],
+  ['01', 'Upload', 'Drop in photos or videos straight from your camera or phone.'],
+  ['02', 'Describe', 'Tell the AI what you want, typed or spoken, in your own words.'],
+  ['03', 'Download', 'Fine-tune by hand, then save the photo or export the reel.'],
 ]
 
 const HEADLINE = ['Edit', 'any', 'photo']
@@ -24,7 +27,7 @@ function trackSpot(e) {
   e.currentTarget.style.setProperty('--my', `${e.clientY - r.top}px`)
 }
 
-export default function Landing({ onFile, loading, error }) {
+export default function Landing({ onFiles, onVideo, loading, error }) {
   const inputRef = useRef(null)
   const [dragging, setDragging] = useState(false)
 
@@ -63,8 +66,7 @@ export default function Landing({ onFile, loading, error }) {
             onDrop={(e) => {
               e.preventDefault()
               setDragging(false)
-              const f = e.dataTransfer.files?.[0]
-              if (f) onFile(f)
+              onFiles(e.dataTransfer.files)
             }}
             onClick={open}
             onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && open()}
@@ -86,8 +88,8 @@ export default function Landing({ onFile, loading, error }) {
                   <Icon name="upload" size={24} />
                 </div>
                 <div className="drop-text">
-                  <h2>{dragging ? 'Drop it here' : 'Upload a photo'}</h2>
-                  <p className="muted">Drag & drop or click · JPG · PNG · HEIC · TIFF · RAW</p>
+                  <h2>{dragging ? 'Drop it here' : 'Upload photos or videos'}</h2>
+                  <p className="muted">1 photo → photo editor · several files or a video → reel studio</p>
                 </div>
                 <span className="btn btn-primary">Choose photo</span>
               </>
@@ -95,15 +97,25 @@ export default function Landing({ onFile, loading, error }) {
             <input
               ref={inputRef}
               type="file"
-              accept={ACCEPT}
+              accept={`${ACCEPT},video/*`}
+              multiple
               hidden
               onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) onFile(f)
+                onFiles(e.target.files)
                 e.target.value = ''
               }}
             />
           </div>
+          <button className="reel-cta fade-up" style={{ '--d': '640ms' }} onClick={onVideo}>
+            <span className="reel-cta-icon">
+              <Icon name="film" size={18} />
+            </span>
+            <span>
+              <b>Make a video or reel</b>
+              <small>Photos → reel, trim videos, add songs, text & transitions</small>
+            </span>
+            <Icon name="right" size={18} />
+          </button>
           {error && <p className="error-banner fade-up">{error}</p>}
         </div>
 

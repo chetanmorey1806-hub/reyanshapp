@@ -38,9 +38,18 @@ npm run dev      # http://localhost:5173
 npm run build    # production build in dist/
 ```
 
+## Features
+
+**Photo editor**: AI prompts (typed or spoken in English / मराठी / हिंदी), one-tap AI tools (remove background/objects, change sky, retouch, restore, colourise), exposure, highlights, shadows, whites, blacks, temperature, tint, vibrance, saturation, HSL colour mixer, RGB tone curve, clarity, sharpen, blur, vignette, fade, grain, 20 looks + your own saved presets, crop with aspect ratios, straighten, rotate, flip, text & stickers (drag on the photo), border frames, watermark (text + logo), before/after, undo/redo, export JPG/PNG/WEBP up to 4K.
+
+**Video & Reels studio**: photos → reel, trim / split / reorder / speed (slow motion), transitions (fade, slide, zoom, wipe, flash, blur), Ken Burns motion, looks, animated text (pop, fade, slide, typing, ticker, credits) with start/end times, your own song with start/end trim or built-in AI music by mood, original-sound volume, watermark, formats 9:16 / 16:9 / 1:1 / 4:5, MP4 export (WebM in Firefox). AI prompts like “wedding reel with romantic song, 30 sec”.
+
 ## Structure
 
-- `src/utils/promptParser.js` – turns a prompt into adjustment values (add new words/looks in `RULES`)
-- `src/utils/renderer.js` – draws the photo with adjustments on a canvas (preview + export)
-- `src/utils/adjustments.js` – adjustment defaults and slider ranges
-- `src/components/` – UI (upload, canvas, prompt chat, sliders, toolbar)
+- `src/App.jsx` – photo editor, AI routing, mode switch (Photo / Video & Reels), splash
+- `src/components/` – UI: `PhotoPanels.jsx` (adjust, HSL, curve, filters, crop, text, frame), `Stage.jsx` (canvas, crop box, text drag), `ChatPanel.jsx` (AI chat + voice), `Logo.jsx`, `Splash.jsx`
+- `src/utils/renderer.js` – photo rendering (preview + export are identical)
+- `src/utils/promptParser.js` – offline prompt understanding (EN/MR/HI)
+- `src/utils/presets.js`, `src/utils/brand.js` – looks, saved presets, watermark
+- `src/video/` – `engine.js` (timeline, transitions, text, audio mix, export), `music.js` (built-in music), `videoPrompt.js`, `VideoStudio.jsx`, `VideoPanels.jsx`
+- `server/aiEditor.js` – Claude: photo prompt routing + video planning; `server/geminiEditor.js` – generative edits

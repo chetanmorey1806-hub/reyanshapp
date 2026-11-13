@@ -113,6 +113,18 @@ const RULES = [
 
   // single adjustments
   {
+    name: 'Shadows',
+    match: /shadows?|सावली|savli|परछाई|parchai/i,
+    step: 30,
+    apply: (a, f) => { a.shadows += f },
+  },
+  {
+    name: 'Highlights',
+    match: /highlights?|हायलाइट/i,
+    step: 30,
+    apply: (a, f) => { a.highlights += f },
+  },
+  {
     name: 'Black & white',
     match: /blackwhite|black ?white|\bb ?& ?w\b|\bbw\b|gr[ae]yscale|monochrome|kala ?pandhra|काळा ?पांढरा|काळापांढरा|कालासफ़ेद|ब्लॅक ?(अँड|ॲंड)? ?व्हाइट|काला ?सफ़ेद|colou?rless/i,
     apply: (a, f) => { a.grayscale += 100 * f },
@@ -229,6 +241,9 @@ function applyGeometry(clause, adj, applied) {
   return false
 }
 
+// words that carry no edit meaning on their own ("crop square kar" → only "kar" left)
+const FILLER = /\b(it|to|make|kar|kara|karo|kr|please|pls|the|a|photo|image|pic|picture|in|as|for|sathi|la|madhe|de|do|dya|this|my|me|crop)\b|करा|कर|करो|साठी|ला|मध्ये|फोटो|द्या|दे|[.!?]/gi
+
 const RESET = /^\s*(reset|original|start over|clear all|undo all|mul|mool|मूळ|पहिल्यासारखा|रीसेट)\b/i
 
 /**
@@ -241,6 +256,35 @@ export function interpretPrompt(prompt, current) {
 
   if (RESET.test(prompt)) {
     return { adjustments: { ...DEFAULT_ADJUSTMENTS }, applied: ['Reset to original'], unknown, reset: true }
+  }
+
+  // Text overlay:  text "Happy Birthday" at top   /   लिहा "शुभ विवाह"
+  const textMatch = prompt.match(/(?:text|title|caption|write|likh[ao]?|lih[ao]?|लिहा|लिख[ोा]?|टेक्स्ट|नाव|naav|name)\s*[:\-]?\s*(?:as\s*)?["“'‘«](.+?)["”'’»]/i) || prompt.match(/["“«](.+?)["”»]/)
+  if (textMatch) {
+    const rest = prompt.slice(textMatch.index + textMatch[0].length, textMatch.index + textMatch[0].length + 40)
+    const y = /top|upar|वर|ऊपर|var\b/i.test(rest) ? 0.12 : /center|middle|madhe|मध्ये|बीच/i.test(rest) ? 0.5 : 0.86
+    adj.texts = [...(adj.texts || []), { id: `t${Date.now()}`, text: textMatch[1], x: 0.5, y, size: 0.075, color: '#ffffff', font: 'Playfair Display', weight: 700, italic: false, shadow: true, opacity: 100 }]
+    applied.push(`Text “${textMatch[1]}”`)
+    prompt = prompt.replace(textMatch[0], ' ').replace(/\b(at|on|in)?\s*(the)?\s*(top|bottom|center|middle|upar|khali)\b/i, ' ')
+  }
+
+  // Crop to a format
+  const CROPS = [
+    [/\b1\s*[:x]\s*1\b|\bsquare\b|chaukon|चौकोन/i, '1:1'],
+    [/\b4\s*[:x]\s*5\b|insta(gram)?\s*post|portrait crop/i, '4:5'],
+    [/\b9\s*[:x]\s*16\b|\bstory\b|\breels?\b|\bstatus\b|स्टोरी|रील/i, '9:16'],
+    [/\b16\s*[:x]\s*9\b|wide ?screen|youtube|thumbnail/i, '16:9'],
+    [/\b3\s*[:x]\s*2\b/i, '3:2'],
+    [/\b4\s*[:x]\s*3\b/i, '4:3'],
+  ]
+  for (const [re, aspect] of CROPS) {
+    const m = prompt.match(re)
+    if (m) {
+      adj._cropAspect = aspect
+      applied.push(`Crop ${aspect}`)
+      prompt = prompt.replace(m[0], ' ').replace(/\b(crop|kap|कापा?|काट)\w*/gi, ' ')
+      break
+    }
   }
 
   // Protect phrases that contain a splitter word ("black and white").
@@ -293,10 +337,12 @@ export function interpretPrompt(prompt, current) {
               : rule.name
       applied.push(numMatch && rule.step !== undefined ? `${rule.name} ${direction < 0 ? '−' : '+'}${Math.abs(amount)}` : label)
     }
-    if (!matched) unknown.push(clause)
+    if (!matched && clause.replace(FILLER, '').trim()) unknown.push(clause)
   }
 
-  return { adjustments: clampAdjustments(adj), applied, unknown, reset: false }
+  const out = clampAdjustments(adj)
+  if (adj._cropAspect) out._cropAspect = adj._cropAspect
+  return { adjustments: out, applied, unknown, reset: false }
 }
 
 export const PROMPT_SUGGESTIONS = [

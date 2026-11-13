@@ -11,16 +11,17 @@ function stamp() {
 export default function DownloadDialog({ open, onClose, base, adj, name, notify }) {
   const [format, setFormat] = useState('image/jpeg')
   const [quality, setQuality] = useState(95)
+  const [size, setSize] = useState(Infinity)
   const [working, setWorking] = useState(false)
 
   if (!open) return null
-  const { width, height } = outputSize(base, adj)
-  const ext = format === 'image/png' ? 'png' : 'jpg'
+  const { width, height } = outputSize(base, adj, size)
+  const ext = format === 'image/png' ? 'png' : format === 'image/webp' ? 'webp' : 'jpg'
   const fileName = `${name}-stories-by-reyansh-${stamp()}.${ext}`
   const canShare = typeof navigator.canShare === 'function' && /Android|iPhone|iPad/i.test(navigator.userAgent)
 
   async function makeBlob() {
-    const blob = await exportImage(base, adj, format, quality / 100)
+    const blob = await exportImage(base, adj, format, quality / 100, size)
     if (!blob) throw new Error('Could not create the image file.')
     return blob
   }
@@ -80,8 +81,9 @@ export default function DownloadDialog({ open, onClose, base, adj, name, notify 
 
         <div className="segmented">
           {[
-            ['image/jpeg', 'JPG', 'Smaller file'],
+            ['image/jpeg', 'JPG', 'Best for sharing'],
             ['image/png', 'PNG', 'Lossless'],
+            ['image/webp', 'WEBP', 'Smallest file'],
           ].map(([v, label, hint]) => (
             <button key={v} className={format === v ? 'active' : ''} onClick={() => setFormat(v)}>
               <b>{label}</b>
@@ -90,7 +92,21 @@ export default function DownloadDialog({ open, onClose, base, adj, name, notify 
           ))}
         </div>
 
-        {format === 'image/jpeg' && (
+        <div className="size-row">
+          {[
+            ['Original', Infinity],
+            ['4K', 3840],
+            ['2K', 2048],
+            ['Full HD', 1920],
+            ['Instagram', 1080],
+          ].map(([label, v]) => (
+            <button key={label} className={`aspect-btn ${size === v ? 'active' : ''}`} onClick={() => setSize(v)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {format !== 'image/png' && (
           <div className="slider quality">
             <div className="slider-head">
               <span>Quality</span>

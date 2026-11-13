@@ -1,29 +1,38 @@
 import { useEffect, useRef, useState } from 'react'
 import Icon from './Icons.jsx'
 
-const SUGGESTIONS = [
-  'Make it bright and warm',
-  'Change the sky to a golden sunset',
-  'Remove people in the background',
-  'Cinematic look',
-  'Wedding look, soft & warm',
-  'Black and white, strong contrast',
-  'थोडा उजेड वाढव आणि रंग जास्त',
-  'Vintage film look',
-  'Moody and dark',
-  'Golden hour sunset',
-  'Sharp & colourful',
-  'Rotate right',
-]
-
 const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)
 
-export default function ChatPanel({ messages, onSubmit, busy, modeLabel }) {
+// Voice prompt languages
+const LANGS = [
+  { id: 'auto', label: 'Auto', code: null },
+  { id: 'en', label: 'English', code: 'en-IN' },
+  { id: 'mr', label: 'मराठी', code: 'mr-IN' },
+  { id: 'hi', label: 'हिंदी', code: 'hi-IN' },
+]
+
+function autoCode() {
+  const l = navigator.language || ''
+  return l.startsWith('mr') ? 'mr-IN' : l.startsWith('hi') ? 'hi-IN' : 'en-IN'
+}
+
+function readLang() {
+  try {
+    return localStorage.getItem('voiceLang') || 'auto'
+  } catch {
+    return 'auto'
+  }
+}
+
+export default function ChatPanel({ messages, onSubmit, busy, modeLabel, suggestions = [], tools = [], title = 'AI Editor', subtitle = 'Describe any edit, in any language', placeholder = 'Describe your edit… e.g. “make the colours pop”' }) {
   const [text, setText] = useState('')
   const [listening, setListening] = useState(false)
+  const [lang, setLang] = useState(readLang)
+  const [langOpen, setLangOpen] = useState(false)
   const listRef = useRef(null)
   const inputRef = useRef(null)
   const recRef = useRef(null)
+  const finalRef = useRef('')
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -44,21 +53,43 @@ export default function ChatPanel({ messages, onSubmit, busy, modeLabel }) {
     setText('')
   }
 
+  function chooseLang(id) {
+    setLang(id)
+    setLangOpen(false)
+    try {
+      localStorage.setItem('voiceLang', id)
+    } catch {
+      /* private mode */
+    }
+  }
+
+  // Voice: speak the edit; it is applied as soon as you stop talking.
   function toggleMic() {
     if (listening) {
       recRef.current?.stop()
       return
     }
     const rec = new SpeechRecognition()
-    rec.lang = navigator.language?.startsWith('mr') ? 'mr-IN' : navigator.language?.startsWith('hi') ? 'hi-IN' : 'en-IN'
+    rec.lang = LANGS.find((l) => l.id === lang)?.code || autoCode()
     rec.interimResults = true
-    rec.onresult = (e) => setText(Array.from(e.results).map((r) => r[0].transcript).join(''))
-    rec.onend = () => setListening(false)
+    rec.continuous = false
+    finalRef.current = ''
+    rec.onresult = (e) => {
+      const said = Array.from(e.results).map((r) => r[0].transcript).join('')
+      setText(said)
+      if (e.results[e.results.length - 1].isFinal) finalRef.current = said
+    }
+    rec.onend = () => {
+      setListening(false)
+      if (finalRef.current.trim()) submit(finalRef.current)
+    }
     rec.onerror = () => setListening(false)
     recRef.current = rec
     setListening(true)
     rec.start()
   }
+
+  const langLabel = LANGS.find((l) => l.id === lang)?.label
 
   return (
     <div className="chat">
@@ -67,8 +98,8 @@ export default function ChatPanel({ messages, onSubmit, busy, modeLabel }) {
           <Icon name="sparkle" size={18} />
         </span>
         <div className="chat-title">
-          <h2>AI Editor</h2>
-          <p className="muted small">Describe any edit, in any language</p>
+          <h2>{title}</h2>
+          <p className="muted small">{subtitle}</p>
         </div>
         <span className="mode-pill">
           <span className="live-dot" />
@@ -88,8 +119,8 @@ export default function ChatPanel({ messages, onSubmit, busy, modeLabel }) {
               <p>{m.text}</p>
               {m.chips?.length > 0 && (
                 <div className="applied">
-                  {m.chips.map((c) => (
-                    <span key={c} className="applied-chip">
+                  {m.chips.map((c, i) => (
+                    <span key={c + i} className="applied-chip">
                       <Icon name="check" size={12} /> {c}
                     </span>
                   ))}
@@ -110,18 +141,45 @@ export default function ChatPanel({ messages, onSubmit, busy, modeLabel }) {
             </div>
           </div>
         )}
+        {listening && (
+          <div className="bubble user listening-bubble">
+            <div className="bubble-body">
+              <span className="wave">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </span>
+              Listening ({langLabel})…
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="suggestions" role="list">
-        {SUGGESTIONS.map((s, i) => (
-          <button key={s} className="suggestion" style={{ '--d': `${i * 40}ms` }} onClick={() => submit(s)} disabled={busy}>
-            {s}
-          </button>
-        ))}
-      </div>
+      {tools.length > 0 && (
+        <div className="ai-tools" role="list">
+          {tools.map((t, i) => (
+            <button key={t.label} className="ai-tool" style={{ '--d': `${i * 35}ms` }} onClick={() => !busy && onSubmit(t.prompt)} disabled={busy} title={t.prompt}>
+              <span className="ai-tool-icon">{t.emoji}</span>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {suggestions.length > 0 && (
+        <div className="suggestions" role="list">
+          {suggestions.map((s, i) => (
+            <button key={s} className="suggestion" style={{ '--d': `${i * 40}ms` }} onClick={() => submit(s)} disabled={busy}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       <form
-        className={`prompt-box ${busy ? 'busy' : ''}`}
+        className={`prompt-box ${busy ? 'busy' : ''} ${listening ? 'listening' : ''}`}
         onSubmit={(e) => {
           e.preventDefault()
           submit(text)
@@ -131,7 +189,7 @@ export default function ChatPanel({ messages, onSubmit, busy, modeLabel }) {
           ref={inputRef}
           value={text}
           rows={1}
-          placeholder="Describe your edit… e.g. “make the colours pop”"
+          placeholder={placeholder}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -142,16 +200,30 @@ export default function ChatPanel({ messages, onSubmit, busy, modeLabel }) {
           aria-label="Edit prompt"
         />
         {SpeechRecognition && (
-          <button type="button" className={`icon-btn mic ${listening ? 'live' : ''}`} onClick={toggleMic} title="Speak your edit" aria-label="Voice input">
-            <Icon name="mic" />
-          </button>
+          <div className="mic-wrap">
+            <button type="button" className="lang-btn" onClick={() => setLangOpen((o) => !o)} aria-label="Voice language">
+              {lang === 'auto' ? 'A' : langLabel.slice(0, 2)}
+            </button>
+            {langOpen && (
+              <div className="lang-menu">
+                {LANGS.map((l) => (
+                  <button key={l.id} type="button" className={l.id === lang ? 'active' : ''} onClick={() => chooseLang(l.id)}>
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button type="button" className={`icon-btn mic ${listening ? 'live' : ''}`} onClick={toggleMic} data-tip={`Speak (${langLabel})`} aria-label="Voice input">
+              <Icon name="mic" />
+            </button>
+          </div>
         )}
         <button type="submit" className="send-btn" disabled={!text.trim() || busy} aria-label="Apply edit">
           {busy ? <span className="mini-spinner" /> : <Icon name="send" />}
         </button>
       </form>
       <p className="prompt-hint muted">
-        <kbd>Enter</kbd> to apply · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line
+        <kbd>Enter</kbd> to apply · <Icon name="mic" size={11} /> voice in English, मराठी, हिंदी
       </p>
     </div>
   )
